@@ -20,8 +20,8 @@ function parse(input) {
             if (lev==-1) {
                 return "Invalid expression";
             } else {
-                //parse(input.slice(subFirst,i-subFirst))
-                console.log(subFirst);
+                //parse(input.slice(subFirst,i-subFirst[lev]))
+                console.log(input.slice(subFirst,i-subFirst[lev]));
                 lev-=1;
             }
         }
