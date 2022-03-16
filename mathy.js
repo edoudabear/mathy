@@ -101,7 +101,6 @@ function arrayzeExpression(input) { // Must be recursive
                     throw "Bracket error";
                 }
             }
-            console.log("valid circonscription ?");
             output[1].push("multiObjectExpression");
             output[0].push(arrayzeExpression(input.slice(parseMin,i))); // We remove the closing bracket
         } else if (input.slice(i,i+2)=="e^") {
@@ -125,7 +124,7 @@ function arrayzeExpression(input) { // Must be recursive
                         throw "Snippet error";
                     }
                 }
-                output[0].push([arrayzeExpression(input.slice(parseMin,i))]);
+                output[0].push(arrayzeExpression(input.slice(parseMin,i)));
             } else if (input.isNumber(i) || input[i]=='x' || input[i]=='e') {
                 if (input.isNumber(i)) {
                     output[0].push([parseInt(input[i]),"number"]); // constant case (except e)
@@ -197,14 +196,14 @@ function arrayzeExpression(input) { // Must be recursive
                             throw "Snippet error";
                         }
                     }
-                    output[0].push([arrayzeExpression(input.slice(parseMin,i))]);
+                    output[0].push(arrayzeExpression(input.slice(parseMin,i)));
                 } else if (input.isNumber(i) || input[i]=='x' || input[i]=='e') {
                     if (input.isNumber(i)) {
-                        output[0].push([parseInt(input[i]),"number"]); // constant case (except e)
+                        output[0].push([[parseInt(input[i])],["number"]]); // constant case (except e)
                     } else if (input[i]=='e') {
-                        output[0].push([Math.E,"number"]); // e constant case;
+                        output[0].push([[Math.E],["number"]]); // e constant case;
                     } else {
-                        output[0].push([input[i],"number"]); // x case;
+                        output[0].push([[input[i]],["number"]]); // x case;
                     }
                 } else {
                     throw "Invalid power expression";
@@ -216,6 +215,202 @@ function arrayzeExpression(input) { // Must be recursive
         }
     }
     return output;
+}
+
+function parseur(input) {
+    //input=viderParenthesesInutiles(input);
+    var imin=0,
+    lev=0,
+    lev2=0,
+    output=[];
+    for (var i=0;i<input.length;i++) {
+        if (input[i]=='{') {
+            lev++;
+        } else if (input[i]=='}') {
+            lev--;
+        } else if (input[i]=='(') {
+            lev2++;
+        } else if (input[i]==')') {
+            lev2--;
+        } else if ((input[i]=='+' || input[i]=='-') && 0<i && lev==0 && lev2==0) {
+            output.push(parseurMultiplicatif(input.slice(imin,i)));
+            imin=i;
+            if (input[i]=='+') {
+                imin++;
+            }
+        }
+    }
+    if (imin==0) {
+        return input;
+    }
+    output.push(parseurMultiplicatif(input.slice(imin,input.length)));
+    var returnObject={ '+' : output };
+    return returnObject;
+}
+
+function parseurMultiplicatif(input) {
+    var imin=0,
+    lev=0,
+    lev2=0,
+    output=[];
+    for (var i=0;i<input.length;i++) {
+        console.log(input.slice(i,i+5));
+        if (i==0 && input[i]=='-') {
+            output.push(-1);
+            imin++;
+        } if (input[i]=='{') {
+            lev++;
+        } else if (input[i]=='}') {
+            lev--;
+        } else if (input[i]=='(') {
+            if (imin!=i) {
+                output.push(input.slice(imin,i));
+            }
+            i=imin;
+            do  {
+                if (i==input.length) {
+                    throw "Erreur de parsage (fraction mal exprimée, à partir du caractère n°"+imin+")";
+                }
+                if (input[i]=='(') {
+                    lev++;
+                } else if (input[i]==')') {
+                    lev--;
+                }
+                i++;
+            } while (lev>0);
+            output.push(parseur(input.slice(imin,i+1)));
+        } else if (input[i]==')') {
+            throw "Erreur parsage : Caractère n°"+i+"inattendu.";
+        } else if ((input[i]=='*' || input.slice(i,i+6)=="\\times") && 0<i && lev==0 && lev2==0) {
+            output.push(parseur(input.slice(imin,i)));
+            imin=i;
+            if (input[i]=='*') {
+                imin++;
+            } else {
+                imin+=6;
+            }
+        } else if ((input[i]=="/" || input.slice(i,i+5)=='\\frac') && lev==0 && lev2==0) {
+            console.log("true")
+            if(input.slice(i,i+5)=="\\frac") {
+                i+=5;
+                if (input[i]!='{') {
+                    throw "Erreur de parsage (caractère n°"+i+")";
+                }
+                lev++;
+                i+=1;
+                imin=i;
+                while (input[i]!='}' && lev>0) {
+                    if (i==input.length) {
+                        throw "Erreur de parsage (fraction mal exprimée, à partir du caractère n°"+imin+")";
+                    }
+                    if (input[i]=='{') {
+                        lev++;
+                    } else if (input[i]=='}') {
+                        lev--;
+                    }
+                    i++;
+                }
+                var numerateur=input.slice(imin,i);
+                i+=1;
+                if (input[i]!='{') {
+                    throw "Erreur de parsage (caractère n°"+i+")";
+                }
+                lev++;
+                i+=1;
+                imin=i;
+                while (input[i]!='}' && lev>1) {
+                    if (i==input.length) {
+                        throw "Erreur de parsage (fraction mal exprimée, à partir de "+imin+")";
+                    }
+                    if (input[i]=='{') {
+                        lev++;
+                    } else if (input[i]=='}') {
+                        lev--;
+                    }
+                    i++;
+                }
+                var denominateur=input.slice(imin,i);
+                output.push({ '/' : [parseur(numerateur),parseur(denominateur)]});
+                imin=i+1;
+            } else {
+                i++;
+                imin=i;
+                if (input[i]=='(') {
+                    imin++;
+                    lev++;
+                    i++;
+                    while (lev>0) {
+                        if (i==input.length) {
+                            throw "Erreur de parsage (fraction mal exprimée, à partir du caractère n°"+imin+")";
+                        }
+                        if (input[i]=='(') {
+                            lev++;
+                        } else if (input[i]==')') {
+                            lev--;
+                        }
+                        i++;
+                    }
+                    output.push({ '/' : [1,parseur(input.slice(imin,i))]});
+                    imin=i+1;
+                } else {
+                    while (input[i]!='(' && i<input.length) {
+                        i++;
+                    }
+                    output.push({ '/' : [1,parseur(input.slice(imin,i))]});
+                    imin=i;
+                    i--;
+                }
+            }
+        }
+    }
+    if (imin==0) {
+        return input;
+    } else if (imin!=input.length) {
+        output.push(parseur(input.slice(imin,input.length)));
+    }
+    return { '*' : output };
+}
+
+function viderParenthesesInutiles(input) {
+    var lev=0;
+    for (var i=0;i<input.length-1;i++) {
+        if (input[i]=='(') {
+            lev++;
+            var isave=i;
+            if (i==0 || (input[i-1]=='+' || input[i-1]=='-')) {
+                while (i<input.length) {
+                    if (input[i]==')') {
+                        if (i==input.length-1) {
+                            return viderParenthesesInutiles(input.slice(0,input.length-1).slice(0,isave));
+                        } else if (input[i+1]=='+' || input[i+1]=='-') {
+                            input=input.slice(0,isave);
+                            i--;
+                            input=input.slice(0,i);
+                        }
+                    }
+                    i++;
+                }
+            }
+        }
+    }
+    return input;
+}
+
+function toJSON(array) {
+    var returnObject={};
+    var k;
+    for (var i=0;i<array[1].length;i++) {
+        k=0;
+        while (returnObject[array[1][i]+String(k)]) {
+            k++;
+        }
+        if (Array.isArray(array[0][i])) {
+            returnObject[array[1][i]+String(k)]=JSON.parse(JSON.stringify(toJSON(array[0][i])));
+        } else {
+            returnObject[array[1][i]+String(k)]=array[0][i];
+        }
+    }
+    return returnObject;
 }
 
 function multiplier(array, indexA, indexB) {
